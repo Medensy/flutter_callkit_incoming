@@ -17,6 +17,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -114,34 +116,7 @@ class CallkitNotificationManager(private val context: Context) {
             Notification.PRIORITY_MAX
         }
         val isCustomNotification = data.getBoolean(EXTRA_CALLKIT_IS_CUSTOM_NOTIFICATION, false)
-        if (isCustomNotification) {
-            notificationViews =
-                RemoteViews(context.packageName, R.layout.layout_custom_notification)
-            notificationViews?.setTextViewText(
-                R.id.tvNameCaller,
-                data.getString(EXTRA_CALLKIT_NAME_CALLER, "")
-            )
-            notificationViews?.setTextViewText(
-                R.id.tvNumber,
-                data.getString(EXTRA_CALLKIT_HANDLE, "")
-            )
-            notificationViews?.setOnClickPendingIntent(
-                R.id.llDecline,
-                getDeclinePendingIntent(notificationId, data)
-            )
-            notificationViews?.setOnClickPendingIntent(
-                R.id.llAccept,
-                getAcceptPendingIntent(notificationId, data)
-            )
-            val headers = data.getSerializable(CallkitIncomingBroadcastReceiver.EXTRA_CALLKIT_HEADERS) as HashMap<String, Any?>
-            getPicassoInstance(context, headers).load(data.getString(EXTRA_CALLKIT_AVATAR, ""))
-                .transform(CircleTransform())
-                .into(targetLoadAvatarCustomize)
-            notificationBuilder.setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            notificationBuilder.setCustomContentView(notificationViews)
-            notificationBuilder.setCustomBigContentView(notificationViews)
-            notificationBuilder.setCustomHeadsUpContentView(notificationViews)
-        } else {
+       
             val headers = data.getSerializable(CallkitIncomingBroadcastReceiver.EXTRA_CALLKIT_HEADERS) as HashMap<String, Any?>
             getPicassoInstance(context, headers).load(data.getString(EXTRA_CALLKIT_AVATAR, ""))
                 .into(targetLoadAvatarDefault)
@@ -159,7 +134,7 @@ class CallkitNotificationManager(private val context: Context) {
                 getAcceptPendingIntent(notificationId, data)
             ).build()
             notificationBuilder.addAction(acceptAction)
-        }
+        
         getNotificationManager().notify(notificationId, notificationBuilder.build())
     }
 
@@ -222,18 +197,25 @@ class CallkitNotificationManager(private val context: Context) {
         }, 1000)
     }
 
+    fun clearVibrator(){
+        val vibrator = context.getSystemService(Vibrator::class.java)
+        vibrator.cancel()
+    }
 
     fun clearIncomingNotification(data: Bundle) {
+        clearVibrator()
         context.sendBroadcast(CallkitIncomingActivity.getIntentEnded())
         notificationId = data.getString(EXTRA_CALLKIT_ID, "callkit_incoming").hashCode()
         getNotificationManager().cancel(notificationId)
-    }
+    }   
+    
 
     fun clearMissCallNotification(data: Bundle) {
         notificationId = data.getString(EXTRA_CALLKIT_ID, "callkit_incoming").hashCode()
         getNotificationManager().cancel(notificationId)
         Handler(Looper.getMainLooper()).postDelayed({
             try {
+                clearVibrator()
                 getNotificationManager().cancel(notificationId)
             } catch (error: Exception) {
             }
@@ -242,6 +224,8 @@ class CallkitNotificationManager(private val context: Context) {
 
     private fun createNotificationChanel() {
         val sound: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        val vibrator = context.getSystemService(Vibrator::class.java)
+        val duration = 500L
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channelCall = NotificationChannel(
                 "callkit_incoming_channel_id",
@@ -250,16 +234,17 @@ class CallkitNotificationManager(private val context: Context) {
             ).apply {
                 description = ""
                 vibrationPattern =
-                    longArrayOf(1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000)
+                    longArrayOf(1000, 1000, 1000, 1000, 1000)
                 lightColor = Color.RED
                 enableLights(true)
                 enableVibration(true)
+                vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500L, 1000), 0))
             }
-            getNotificationManager().createNotificationChannel(channelCall)
+        getNotificationManager().createNotificationChannel(channelCall)
 
             val attributes = AudioAttributes.Builder()
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .setUsage(AudioAttributes.USAGE_UNKNOWN)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                 .build()
             val channelMissedCall = NotificationChannel(
                 "callkit_missed_channel_id",
@@ -297,6 +282,7 @@ class CallkitNotificationManager(private val context: Context) {
     }
 
     private fun getCallbackPendingIntent(id: Int, data: Bundle): PendingIntent {
+        clearVibrator()
         val acceptIntent = CallkitIncomingBroadcastReceiver.getIntentCallback(context, data)
         return PendingIntent.getBroadcast(
             context,

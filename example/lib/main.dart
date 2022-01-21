@@ -148,12 +148,15 @@ class _MyAppState extends State<MyApp> {
         'appName': 'Callkit',
         'avatar': 'https://i.pravatar.cc/100',
         'handle': '0123456789',
-        'type': 0,
+        'type': 1,
         'duration': 30000,
         'extra': <String, dynamic>{'userId': '1a2b3c4d'},
-        'headers': <String, dynamic>{'apiKey': 'Abc@123!', 'platform': 'flutter'},
+        'headers': <String, dynamic>{
+          'apiKey': 'Abc@123!',
+          'platform': 'flutter'
+        },
         'android': <String, dynamic>{
-          'isCustomNotification': true,
+          'isCustomNotification': false,
           'isShowLogo': false,
           'ringtonePath': 'ringtone_default',
           'backgroundColor': '#0955fa',
